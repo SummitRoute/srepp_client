@@ -1,0 +1,56 @@
+[Version]
+Signature = "$Windows NT$"
+Class = System
+ClassGuid = {b053b988-c433-4f97-a066-606bdd4b0cce}  ; Random guid.
+   ; Normally you specify a known class guid, but this doesn't fit in any normal class.
+
+Provider = %SummitRoute%
+DriverVer = 09/16/2014,1.0.0.0    ; TODO CHANGME
+CatalogFile = srepp.cat
+DriverPackageType=KernelService
+
+[DestinationDirs]
+DefaultDestDir = %DIRID_DRIVERS%
+
+[DefaultInstall]
+OptionDesc = %ServiceDescription%
+CopyFiles = srepp.DriverFiles
+
+[DefaultInstall.Services]
+AddService = %ServiceName%,,srepp.Service
+
+[DefaultUninstall]
+DelFiles = srepp.DriverFiles
+
+[DefaultUninstall.Services]
+DelService = %ServiceName%,0x200 ;Ensure service is stopped before deleting
+
+; #############################################################################
+; # Service description
+[srepp.Service]
+DisplayName = %ServiceName%
+Description = %ServiceDescription%
+ServiceBinary = %12%\%DriverName%.sys
+ServiceType = 1   ; SERVICE_KERNEL_DRIVER
+StartType = 3     ; SERVICE_DEMAND_START
+ErrorControl = 1  ; SERVICE_ERROR_NORMAL
+
+; #############################################################################
+; # Files
+[srepp.DriverFiles]
+%DriverName%.sys
+[SourceDisksFiles]
+srepp.sys = 1
+[SourceDisksNames]
+1 = %DiskId1%
+
+; #############################################################################
+; # Strings
+
+[Strings]
+SummitRoute = Summit Route
+DIRID_DRIVERS = 12
+ServiceDescription = "Monitors for new processes"
+ServiceName = "Summit Route EPP driver"
+DriverName = "srepp"
+DiskId1 = "Summit Route EPP installation media"

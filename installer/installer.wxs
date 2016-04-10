@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+    xmlns:netfx="http://schemas.microsoft.com/wix/NetFxExtension"
+    xmlns:difx='http://schemas.microsoft.com/wix/DifxAppExtension'
+    xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <Product Id="*" Name="Summit Route End-Point Protection"
+           Language="1033"
+           Version="0.0.0.1" 
+           Manufacturer="Summit Route"
+           UpgradeCode="2012DA35-95A5-4D7C-933C-8BF7B1D1714A">
+    <Package 
+        InstallerVersion="200" 
+        Compressed="yes" 
+        InstallPrivileges="elevated"
+        />
+    <Media Id='1' Cabinet='product.cab' EmbedCab='yes' />
+
+    <!-- ****************************************************************** -->
+    <!-- Installer checks -->
+
+    <!-- Ensure OS is Vista or greater -->
+    <Condition Message="This application is only supported on Windows Vista, Windows Server 2008, or higher.">
+        <![CDATA[Installed OR (VersionNT >= 600)]]>
+    </Condition>
+    
+    <!-- Ensure the user installing is an admin -->
+    <Condition Message='You need to be an administrator to install this product.'>Privileged</Condition>  
+    
+    <!-- Ensure the system has .NET 4.0 installed -->
+    <PropertyRef Id="NETFRAMEWORK40FULL"/>
+    <Condition Message="This application requires .NET Framework 4.0. Please install the .NET Framework then run this installer again.">
+        <![CDATA[Installed OR NETFRAMEWORK40FULL]]>
+    </Condition>
+
+
+    <!-- ****************************************************************** -->
+    <!-- Display an icon in Add/Remove Programs -->
+    <Icon Id="icon.ico" SourceFile="..\images\icon.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+    <Property Id="ALLUSERS" Value="1" />
+
+    <Property Id='INSTALLPATH'>
+        <RegistrySearch Id='InstallPathProperty' Root="HKLM"
+            Key="Software\Summit Route\SREPP"
+            Name='install_path' Type='raw' />
+    </Property>
+
+    <!-- ************************************************************** -->
+    <!-- Install the files -->
+
+    <!-- Location to install to: C:\Program Files (x86)\Summit Route\ -->
+    <Directory Id='TARGETDIR' Name='SourceDir'>
+      <Directory Id='ProgramFilesFolder' Name='PFiles'>
+        <Directory Id='SRSERVICE' Name='Summit Route' />
+      </Directory>
+    </Directory>
+    
+    <DirectoryRef Id="SRSERVICE">
+        <Component Id="InstallService" Guid='D6DDA62B-1DB8-4E38-B6F7-A7D074F2DC13'>
+            <!-- Files to install -->
+            <File Id="srsvc" Name="srsvc.exe" Source="bins\srsvc.exe" KeyPath="yes" Vital="yes"/>
+            <File Id="srui" Name="srui.exe" Source="bins\srui.exe" />
+            <File Id="srkcomm" Name="srkcomm.dll" Source="bins\srkcomm.dll" />
+
+            <!-- Third-party libraries -->
+            <File Id="FluentNHibernate" Name="FluentNHibernate.dll" Source="bins\FluentNHibernate.dll" />
+            <File Id="IesiCollections" Name="Iesi.Collections.dll" Source="bins\Iesi.Collections.dll" />
+            <File Id="NHibernate" Name="NHibernate.dll" Source="bins\NHibernate.dll" />
+            <File Id="SystemDataSQLite" Name="System.Data.SQLite.dll" Source="bins\System.Data.SQLite.dll" />
+            <File Id="SystemWebHelpers" Name="System.Web.Helpers.dll" Source="bins\System.Web.Helpers.dll" />
+            
+            <File Id="msvcr120d" Name="msvcr120d.dll" Source="bins\msvcr120d.dll" /> <!-- For srkcomm.dll -->
+
+            <!-- Set up service for privileged monitoring -->
+            <ServiceInstall Id="SummitRoute"
+                            Name="Summit Route EPP"
+                            DisplayName="Summit Route EPP"
+                            Type="ownProcess"
+                            Start="auto"
+                            ErrorControl="normal"
+                            Description="Monitors for and blocks untrusted processes"
+                            Account="LocalSystem"
+                            Interactive="no"
+                            />
+            <ServiceControl Id="StartSummitRoute"
+                            Name="Summit Route EPP" Start="install" Wait="no" />
+            <ServiceControl Id="StopSummitRoute" 
+                            Name="Summit Route EPP"
+                            Stop="both" Wait="yes" Remove="uninstall" />
+
+            <util:RemoveFolderEx On="uninstall" Property="INSTALLPATH"/>
+            
+        </Component>
+
+        <!-- ************************************************************** -->
+        <!-- Install the driver -->
+        <Component Id='InstallDriver' Guid='9C28FCCF-F179-4DD4-8E5C-EAFF2CD1C165'>
+          <File Id='srSYS' Name='srepp.sys' DiskId='1' Source='bins\srepp.sys' KeyPath='yes' />
+          <File Id='srINF' Name='srepp.inf' DiskId='1' Source='bins\srepp.inf'/>
+          <File Id='srCAT' Name='srepp.cat' DiskId='1' Source='bins\srepp.cat'/>
+          <difx:Driver AddRemovePrograms="no" Legacy="no" PlugAndPlayPrompt="no" Sequence='1' />
+        </Component>
+ 
+        <!-- Add UI to the run key -->
+        <Component Id="RegistryEntries" Guid="0ff86769-fed7-49a7-ab70-5682d8ee03cd">
+          <RegistryKey Root="HKLM"
+              Key="Software\Microsoft\Windows\CurrentVersion\Run">
+            <RegistryValue Type="string" Name="SREPP" Value="&quot;[SRSERVICE]srui.exe&quot;" KeyPath="yes"/>
+          </RegistryKey>
+
+          <RegistryKey Id='SREPPRegKey' Root="HKLM"
+              Key="Software\Summit Route\SREPP"
+              ForceDeleteOnUninstall="yes">
+            <RegistryValue Type="string" Name="installer_path" Value="[MY_EXE_PATH]"/>
+            <RegistryValue Type="string" Name="install_path" Value="[SRSERVICE]" />
+          </RegistryKey>
+        </Component>
+    </DirectoryRef>
+    
+    <!-- This just says install what I just wrote above -->
+    <Feature    Id="MainApplication"
+                Title="MainApplication"
+                Level='1'>
+        <ComponentRef Id='InstallService'/>
+        <ComponentRef Id='InstallDriver'/>
+        <ComponentRef Id='RegistryEntries'/>
+    </Feature>
+    
+    <!-- Run our UI after install -->
+    <Property Id="WixShellExecTarget" Value="[#srui]" />
+    <CustomAction Id="LaunchInstalledExe"
+         FileKey="srui"
+         ExeCommand="" 
+         Execute="immediate" 
+         Impersonate="yes" 
+         Return="asyncNoWait" />
+
+        
+    <InstallExecuteSequence>
+        <Custom Action='LaunchInstalledExe' After='InstallFinalize'/>
+    </InstallExecuteSequence>
+
+  </Product>
+</Wix>

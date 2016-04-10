@@ -1,0 +1,26 @@
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:bal="http://schemas.microsoft.com/wix/BalExtension">
+  <Bundle 
+    Name="Summit Route EPP" 
+    Version="0.0.0.1" 
+    Manufacturer="Summit Route" 
+    UpgradeCode="ffc97641-357e-412b-ada9-852a1772ac47" 
+    Copyright="(C) Summit Route LLC" 
+    IconSourceFile="../images/icon.ico" 
+    AboutUrl="https://SummitRoute.com">
+    
+     
+    <BootstrapperApplicationRef Id="WixStandardBootstrapperApplication.HyperlinkLicense">
+      <bal:WixStandardBootstrapperApplication
+            LicenseUrl="https://SummitRoute.com/srepp/license.html"
+            LogoFile="../images/icon64.png"
+            />
+    </BootstrapperApplicationRef>
+    
+
+    <Chain>
+      <MsiPackage Id="MainPackage" SourceFile="SummitRoute_x86.msi" DisplayInternalUI="no" Compressed="yes" Vital="yes">
+        <MsiProperty Name="MY_EXE_PATH" Value="[WixBundleOriginalSource]"/>
+      </MsiPackage>
+    </Chain>
+  </Bundle>
+</Wix>

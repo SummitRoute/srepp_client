@@ -1,0 +1,186 @@
+# Sign with:
+signtool.exe sign /ac DigiCert.crt *
+
+# Timestamp:
+signtool.exe timestamp /t http://timestamp.digicert.com *
+
+# Add unauthenticated blob 
+ ../../osslsigncode-1.7.1/osslsigncode sign -pkcs12 test.pfx -pass password -n "SREPP" -i https://SummitRoute.com/ -t http://timestamp.verisign.com/scripts/timstamp.dll -in srepp.msi -out srepp_added.msi
+
+
+# Dual signing:
+- http://msdn.microsoft.com/en-us/library/windows/hardware/hh967734(v=vs.85).aspx
+  Signtool sign /fd sha256 /ph /as /sha1
+
+
+
+Proper ordering (http://www.osronline.com/showthread.cfm?link=224009):
+- stamp
+- sign
+- generate cat
+- sign cat
+- verify both files (cat and sys)
+
+
+Slugger (main laptop), and Fortress (signer, no Internet)
+
+1. Slugger: Compile
+2. Slugger: Timestamp
+->
+3. Fortress: Sign
+<-
+4. Slugger: Generate .cat
+5. Slugger: Timestamp cat
+->
+5. Fortress: Sign .cat
+<-
+6. Slugger: Generate .msi
+7. Slugger: Timestamp .msi
+->
+8. Fortress: Sign .msi
+<-
+9. Slugger: Deploy
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+----
+Other notes
+# Extract sig
+python disitool.py extract accesschk.exe accesschk.pkcs7
+
+# Convert to text
+openssl pkcs7 -in accesschk.pkcs7 -print_certs -text -inform der > accesschk.pkcs7.txt
+
+# Save each cert manually into files
+
+# Recreate from certificates
+ openssl crl2pkcs7 -nocrl -certfile c1.pem -certfile c2.pem -certfile c3.pem -certfile c4.pem -out generated.pkcs7
+
+# Convert to text
+openssl pkcs7 -in generated.pkcs7 -print_certs -text -inform der > generated.pkcs7.txt
+
+# Ensure it matches what we extracted before
+sha1sum *.txt
+# 2d39ce2a68c6584413723352f5ccdec93caa296c  accesschk.pkcs7.txt
+# 2d39ce2a68c6584413723352f5ccdec93caa296c  generated.pkcs7.txt
+
+
+
+# Verify
+signtool.exe verify /pa newsig.exe
+
+
+
+
+
+
+
+Registries of object identifiers
+- http://www.alvestrand.no/objectid/1.2.840.113549.2.5.html
+- http://www.oid-info.com/cgi-bin/display?oid=1.3.14.3.2.26&action=display
+
+
+
+Gutman's authenticode reversing:
+- https://www.cs.auckland.ac.nz/~pgut001/pubs/authenticode.txt
+
+
+C code for signing a file:
+- http://blogs.msdn.com/b/alejacma/archive/2008/12/11/how-to-sign-exe-files-with-an-authenticode-certificate-part-2.aspx
+
+When calling SignerSignEx, need to have SIGNER_SIGNATURE_INFO set to a blob of psUnauthenticated.
+// http://msdn.microsoft.com/en-us/library/windows/desktop/aa387734(v=vs.85).aspx
+HRESULT WINAPI SignerSignEx(
+  _In_      DWORD dwFlags,
+  _In_      SIGNER_SUBJECT_INFO *pSubjectInfo,
+  _In_      SIGNER_CERT *pSignerCert,
+  _In_      SIGNER_SIGNATURE_INFO *pSignatureInfo,
+  _In_opt_  SIGNER_PROVIDER_INFO *pProviderInfo,
+  _In_opt_  LPCWSTR pwszHttpTimeStamp,
+  _In_opt_  PCRYPT_ATTRIBUTES psRequest,
+  _In_opt_  LPVOID pSipData,
+  _Out_     SIGNER_CONTEXT **ppSignerContext
+);
+
+// http://msdn.microsoft.com/en-us/library/windows/desktop/aa387753(v=vs.85).aspx
+typedef struct _SIGNER_SIGNATURE_INFO {
+  DWORD             cbSize;
+  ALG_ID            algidHash;
+  DWORD             dwAttrChoice;
+  union {
+    SIGNER_ATTR_AUTHCODE *pAttrAuthcode;
+  };
+  PCRYPT_ATTRIBUTES psAuthenticated;
+  PCRYPT_ATTRIBUTES psUnauthenticated;
+} SIGNER_SIGNATURE_INFO, *PSIGNER_SIGNATURE_INFO;
+
+
+// http://msdn.microsoft.com/en-us/library/windows/desktop/aa381146(v=vs.85).aspx
+typedef struct _CRYPT_ATTRIBUTES {
+  DWORD            cAttr;
+  PCRYPT_ATTRIBUTE rgAttr;
+} CRYPT_ATTRIBUTES, *PCRYPT_ATTRIBUTES, CMSG_ATTR;
+
+// http://msdn.microsoft.com/en-us/library/windows/desktop/aa381139(v=vs.85).aspx
+typedef struct _CRYPT_ATTRIBUTE {
+  LPSTR            pszObjId;
+  DWORD            cValue;
+  PCRYPT_ATTR_BLOB rgValue;
+} CRYPT_ATTRIBUTE, *PCRYPT_ATTRIBUTE;
+
+// http://msdn.microsoft.com/en-us/library/windows/desktop/aa380238(v=vs.85).aspx
+typedef struct _CRYPTOAPI_BLOB {
+  DWORD cbData;
+  BYTE  *pbData;
+} CRYPT_INTEGER_BLOB,
+
+###############
+Using new SignerSignEx2
+http://msdn.microsoft.com/en-us/library/windows/desktop/jj835834(v=vs.85).aspx
+
+
+
+
+Could use  osslsigncode
+- https://github.com/mkrautz/osslsigncode or http://sourceforge.net/projects/osslsigncode/
+- Using it: http://development.adaptris.net/users/lchan/blog/2013/06/07/signing-windows-installers-on-linux/
+
+
+Dual signing:
+- http://msdn.microsoft.com/en-us/library/windows/hardware/hh967734(v=vs.85).aspx
+  Signtool sign /fd sha256 /ph /as /sha1
+
+
+
+Dropbox uses the type 1.3.6.1.4.1.42921.1.2.1
+OBJ_Enterprises is    1.3.6.1.4.1
+
+
+Timestamp separate:
+http://stackoverflow.com/questions/2872105/alternative-timestamping-services-for-authenticode
